@@ -25,17 +25,24 @@ block content
               - if (apiInfo.auth.defaultSecret)
                   - var defaultSecret =apiInfo.auth.defaultSecret
               - else
-                  - var defaultSecret =''
+                  - var defaultSecret =''                 
               div
                   - if (apiInfo.oauth || apiInfo.oauth2)
-                      label(for='key') Client ID
+                    label(for='key') Client ID
+                    input(id='key', name='key', value=defaultKey, style='color=#EEEEEE')
+                  - else if (apiInfo.auth == 'basicAuth')
+                    label(for='username') User name
+                    input(id='username', name='username', value=defaultKey, style='color=#EEEEEE')
                   - else
                     label(for='key') API Key
-                  input(id='key', name='key', value=defaultKey, style='color=#EEEEEE')
+                    input(id='key', name='key', value=defaultKey, style='color=#EEEEEE')
               div
                   - if (apiInfo.oauth || apiInfo.oauth2)
                       label(for='secret') Client Secret
                       input(id='secret', name='secret', value=defaultSecret, style='color=#EEEEEE')
+                  - else if (apiInfo.auth == 'basicAuth')
+                      label(for='password') Password
+                      input(id='password', name='password', type='password', value=defaultKey, style='color=#EEEEEE')
                   - if (apiInfo.signature)
                       label(for='secret') Shared Secret
                       input(id='secret', name='secret', value=defaultSecret, style='color=#EEEEEE')
@@ -48,7 +55,7 @@ block content
               div(id='oauthAuthenticated', style='display:none')
                   br
                   span(style='vertical-align:botttom') Authenticated with OAuth
-                      img(src='images/accept.png')
+                      img(src='/images/accept.png')
               - if (authed && (apiInfo.oauth || apiInfo.oauth2))
                   script.
                       document.getElementById('oauthAuthenticated').style.display = 'block';
@@ -96,7 +103,8 @@ block content
                               span.description !{method.Synopsis}
                               br
                               br
-                              - if (method.parameters && method.parameters.length > 0)
+                              //- if (method.parameters.length > 0)
+                              - if (method.parameters)
                                   table.parameters
                                       thead
                                           tr

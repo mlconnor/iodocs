@@ -193,9 +193,12 @@
         var params = $(this).serializeArray(),
             apiKey = { name: 'apiKey', value: $('input[name=key]').val() },
             apiSecret = { name: 'apiSecret', value: $('input[name=secret]').val() },
-            apiName = { name: 'apiName', value: $('input[name=apiName]').val() };
+            apiName = { name: 'apiName', value: $('input[name=apiName]').val() },
+            apiUsername = { name: 'apiUsername', value: $('input[name=username]').val() },
+            apiPassword = { name: 'apiPassword', value: $('input[name=password]').val() };
 
-        params.push(apiKey, apiSecret, apiName);
+        //params.push(apiKey, apiSecret, apiName);
+        params.push(apiKey, apiSecret, apiName, apiUsername, apiPassword);
 
         // Setup results container
         var resultContainer = $('.result', self);

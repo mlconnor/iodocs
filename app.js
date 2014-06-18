@@ -37,6 +37,8 @@ var express     = require('express'),
     crypto      = require('crypto'),
     clone       = require('clone'),
     redis       = require('redis'),
+    request     = require('request'),
+    _           = require('underscore'),
     RedisStore  = require('connect-redis')(express);
 
 // Add minify to the JSON object
@@ -116,6 +118,7 @@ app.configure(function() {
     app.set('views', __dirname + '/views');
     app.set('view engine', 'jade');
     app.use(express.logger());
+
     app.use(express.bodyParser());
     app.use(express.methodOverride());
     app.use(express.cookieParser());
@@ -136,11 +139,49 @@ if(config.redis) {
     }));
 } 
 
+    console.log('CONFIG', config);
     // Global basic authentication on server (applied if configured)
-    if (config.basicAuth && config.basicAuth.username && config.basicAuth.password) {
+
+    if (false && config.basicAuth && config.basicAuth.username && config.basicAuth.password) {
+        console.log('USING BASIC AUTH');
         app.use(express.basicAuth(function(user, pass, callback) {
-            var result = (user === config.basicAuth.username && pass === config.basicAuth.password);
-            callback(null /* error */, result);
+            console.log('Validation BasicAuth user: ' + user + " and pw: " + pass);
+            request.post({
+	      "url"  : "https://fed.testko.com/global/2.0/login.fcc",
+	      "form" : {
+		"target" : "HTTPS://fed.testko.com/affwebservices/public/saml2sso?SPID=thehub",
+		"smquerydata" : "",
+		"smauthreason" : "0",
+		"smagentname" : "EBZyFgrnIuyXKluCSa2hyXV1exKWE4NvBoq1Cx2vN4vum+qSTQhk2CcDRy3ddsAq",
+		"postpreservationdata" : "",
+		"forest" : "dc=testko,dc=com",
+		"KO_APP_ID" : "",
+		"userid" : user,
+		"password" : pass
+	      },
+	      "headers" : {
+		"User-Agent" : "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:23.0) Gecko/20100101 Firefox/23.0",
+		"Accept"     : "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+		"Accept-Language" : "en-US,en;q=0.5",
+		"Cache-Control" : "max-age=0"
+	      }
+	    }, function(err, response, body) {
+              console.log('KO AUTH RETURNED', err, response, body);
+              if ( err != null ) {
+                callback(err);
+              } else {
+                if ( _.has(response, 'headers') && _.has(response.headers, 'set-cookie') ) {
+                  var sessionCookie = _.find(response.headers['set-cookie'], function(cookie) { return cookie.indexOf('SMSESSION') >= 0; });
+                  if ( sessionCookie != null ) {
+                    callback(null, true);
+                  } else {
+                    callback(null, false);
+                  }
+                } else {
+                  callback(null, false);
+                }
+              }
+            });
         }));
     }
 
@@ -533,6 +574,7 @@ function processRequest(req, res, next) {
                  if (locations[param] == 'header') {
                      // Extract custom headers from the params
                      customHeaders[param] = params[param];
+console.log('ADDING A CUSTOM HEADER headers now',customHeaders);
                      delete params[param];
                  } else {
                      // Replace placeholders in the methodURL with matching params
@@ -570,6 +612,7 @@ function processRequest(req, res, next) {
         privateReqURL = apiConfig.protocol + '://' + apiConfig.baseURL + apiConfig.privatePath + methodURL + ((paramString.length > 0) ? '?' + paramString : ""),
         options = {
             headers: clone(apiConfig.headers),
+            rejectUnauthorized: false,
             protocol: apiConfig.protocol + ':',
             host: baseHostUrl,
             port: baseHostPort,
@@ -811,6 +854,15 @@ function processRequest(req, res, next) {
             options.path += apiConfig.keyParam + '=' + apiKey;
         }
 
+        // Basic Auth support
+        if (apiConfig.auth == 'basicAuth') {
+            if ( typeof options.headers == "undefined" ) {
+              options.headers = {} ;
+            }
+            options.headers['Authorization'] = 'Basic ' + new Buffer(reqQuery.apiUsername + ':' + reqQuery.apiPassword).toString('base64');
+            console.log(options.headers['Authorization'] );
+        }
+
         // Perform signature routine, if any.
         if (apiConfig.signature) {
             var timeStamp, sig;
@@ -827,7 +879,7 @@ function processRequest(req, res, next) {
                 options.path += '&' + apiConfig.signature.sigParam + '=' + sig;
             }
         }
-
+console.log('REQ_QUERY', reqQuery);
         // Setup headers, if any
         if (reqQuery.headerNames && reqQuery.headerNames.length > 0) {
             if (config.debug) {
@@ -876,6 +928,7 @@ function processRequest(req, res, next) {
             doRequest = http.request;
         }
 
+        console.log('making the API call', options, 'body=', requestBody);
         // API Call. response is the response from the API, res is the response we will send back to the user.
         var apiCall = doRequest(options, function(response) {
             response.setEncoding('utf-8');
@@ -988,6 +1041,7 @@ app.post('/processReq', oauth, processRequest, function(req, res) {
         call: req.call,
         code: req.res.statusCode
     };
+    console.log('sending the result', result);
     res.send(result);
 });
 
